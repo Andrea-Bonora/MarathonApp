@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MarathonApp</title>
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MarathonApp">
+
+    <!-- GENERATORE ICONA APP -->
+    <script>
+      (function() {
+          const canvas = document.createElement('canvas');
+          canvas.width = 180; canvas.height = 180;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#5B21CB'; ctx.fillRect(0, 0, 180, 180);
+          const scale = 10;
+          const drawP = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(x * scale, y * scale, scale, scale); };
+          const red = "#ef4444"; const blue = "#3b82f6";
+          for(let i=0; i<5; i++) { drawP(4+i, 3+i, red); drawP(5+i, 3+i, red); }
+          for(let i=0; i<5; i++) { drawP(13-i, 3+i, blue); drawP(12-i, 3+i, blue); }
+          const gold = "#fbbf24"; const dark = "#b45309"; const light = "#fef08a";
+          const medal = [
+              [7,8],[8,8],[9,8],[10,8],[6,9],[7,9],[8,9],[9,9],[10,9],[11,9],
+              [5,10],[6,10],[7,10],[8,10],[9,10],[10,10],[11,10],[12,10],
+              [5,11],[6,11],[7,11],[8,11],[9,11],[10,11],[11,11],[12,11],
+              [5,12],[6,12],[7,12],[8,12],[9,12],[10,12],[11,12],[12,12],
+              [5,13],[6,13],[7,13],[8,13],[9,13],[10,13],[11,13],[12,13],
+              [6,14],[7,14],[8,14],[9,14],[10,14],[11,14],
+              [7,15],[8,15],[9,15],[10,15]
+          ];
+          medal.forEach(p => drawP(p[0], p[1], gold));
+          const shadow = [[6,14],[7,15],[8,15],[9,15],[10,15],[11,14],[12,13],[12,12],[12,11],[12,10]];
+          shadow.forEach(p => drawP(p[0], p[1], dark));
+          const high = [[6,9],[7,8],[8,8],[5,10],[5,11]];
+          high.forEach(p => drawP(p[0], p[1], light));
+          drawP(8,11, dark); drawP(9,11, dark); drawP(8,12, dark); drawP(9,12, dark);
+          
+          const link = document.createElement('link');
+          link.rel = 'apple-touch-icon';
+          link.href = canvas.toDataURL('image/png');
+          document.head.appendChild(link);
+      })();
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- LIBRERIE FIREBASE (Aggiunto AUTH) -->
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .medal-preview-bg {
+            background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="bg-black text-white overflow-x-hidden min-h-screen" style="background-image: linear-gradient(135deg, #1e3a8a 0%, #111827 50%, #701a75 100%);">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- ICONE SVG ---
+        const Icons = {
+          Home: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+          History: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+          Medal: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="14" r="4"/><path d="M12 10V2l3 3 3-3v8"/></svg>,
+          Plus: () => <svg viewBox="0 0 24 24" className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+          Running: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="16" cy="4" r="1"/><path d="M12 6l-2 4 4 2-2 4"/><path d="M6 16l4-2"/><path d="M16 18l2-4"/></svg>,
+          Star: () => <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
+          X: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+          Save: () => <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+          Settings: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+          Camera: () => <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+          Trash: () => <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>,
+          Refresh: () => <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>,
+          Lock: () => <svg viewBox="0 0 24 24" className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        };
+
+        const GlassCard = ({ children, className = '', onClick }) => (
+          <div onClick={onClick} className={`bg-white/20 backdrop-blur-xl border border-white/30 p-6 shadow-2xl ${className}`}>{children}</div>
+        );
+        const GlassButton = ({ children, className = '', ...props }) => (
+          <button {...props} className={`bg-white/20 backdrop-blur-lg border border-white/40 hover:bg-white/30 text-white transition-all duration-300 flex items-center justify-center gap-2 ${className}`}>{children}</button>
+        );
+        const GlassInput = (props) => (
+          <input {...props} className={`bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder:text-white/60 focus:ring-2 focus:ring-sky-200 outline-none w-full ${props.className || ''}`} />
+        );
+
+        // ==========================================
+        // 1. INCOLLA QUI LA TUA CONFIGURAZIONE FIREBASE
+        // ==========================================
+        const firebaseConfig = {
+          apiKey: "AIzaSyBCvUfyCeAhnPbmwRiPJyfDQORkjRIhFqo",
+          authDomain: "marathonapp-c58f6.firebaseapp.com",
+          projectId: "marathonapp-c58f6",
+          storageBucket: "marathonapp-c58f6.firebasestorage.app",
+          messagingSenderId: "1069829485856",
+          appId: "1:1069829485856:web:32de2e2f3ff12d27d19345"
+        };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        // ==========================================
+
+        const distances = { '10k': 10, 'Mezza Maratona': 21.1, 'Maratona': 42.2, 'Hyrox': 99 };
+        const getPBs = (races) => {
+            const pbs = {};
+            races.filter(r => r.completed).forEach(r => {
+                if (!pbs[r.type] || r.time < pbs[r.type].time) pbs[r.type] = r;
+            });
+            return Object.values(pbs).sort((a, b) => distances[a.type] - distances[b.type]);
+        };
+
+        const isolateMedal = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const SIZE = 400; 
+                        canvas.width = SIZE; canvas.height = SIZE;
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, SIZE, SIZE);
+                        const minDim = Math.min(img.width, img.height);
+                        const sx = (img.width - minDim) / 2;
+                        const sy = (img.height - minDim) / 2;
+                        ctx.beginPath();
+                        ctx.arc(SIZE/2, SIZE/2, SIZE/2, 0, Math.PI * 2);
+                        ctx.closePath();
+                        ctx.clip();
+                        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, SIZE, SIZE);
+                        resolve(canvas.toDataURL('image/png'));
+                    };
+                    img.onerror = () => reject("Errore caricamento immagine");
+                };
+                reader.onerror = () => reject("Errore lettura file");
+            });
+        };
+
+        // --- SCHERMATE ---
+        const Dashboard = ({ races, username }) => {
+          const completed = races.filter(r => r.completed);
+          const pbList = getPBs(races);
+          return (
+            <div className="p-4 space-y-8 pt-10">
+              <div><h1 className="text-4xl font-black text-white mt-4">{username ? `Ciao, ${username}!` : 'Dashboard'}</h1></div>
+              <div className="flex justify-center gap-6 mt-4">
+                <GlassCard className="w-36 h-36 rounded-[2.5rem] flex flex-col items-center justify-center p-2 text-center">
+                  <div className="flex justify-center mb-1 text-sky-200"><Icons.Running /></div>
+                  <p className="text-5xl font-extrabold mt-1">{completed.length}</p>
+                  <p className="text-[10px] uppercase text-white/70 font-bold tracking-widest mt-1">Gare Fatte</p>
+                </GlassCard>
+                <GlassCard className="w-36 h-36 rounded-[2.5rem] flex flex-col items-center justify-center p-2 text-center">
+                  <div className="flex justify-center mb-1 text-amber-200"><Icons.Medal /></div>
+                  <p className="text-5xl font-extrabold mt-1">{completed.filter(r => r.medal).length}</p>
+                  <p className="text-[10px] uppercase text-white/70 font-bold tracking-widest mt-1">Medaglie</p>
+                </GlassCard>
+              </div>
+              <div className="pt-4">
+                <h3 className="text-2xl font-bold mb-5 flex items-center gap-2 text-white"><Icons.Star /> Personal Bests</h3>
+                {pbList.length === 0 && <p className="text-white/50 text-center italic">Nessuna gara registrata.</p>}
+                <div className="space-y-4">
+                  {pbList.map(pb => (
+                    <GlassCard key={`pb-${pb.id}`} className="rounded-3xl flex justify-between items-center p-5 border-l-4 border-l-amber-400 bg-white/10">
+                      <div>
+                        <p className="text-xl font-black text-white">{pb.type}</p>
+                        <p className="text-sm text-white/70 mt-1">{pb.event} • {pb.date}</p>
+                      </div>
+                      <div className="text-right"><p className="text-2xl font-black text-amber-300 drop-shadow-md">{pb.time}</p></div>
+                    </GlassCard>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const Storico = ({ races, onRaceClick }) => {
+          const [filter, setFilter] = useState('Tutti');
+          const types = ['Tutti', '10k', 'Mezza Maratona', 'Maratona', 'Hyrox'];
+          const completed = races.filter(r => r.completed);
+          const filteredRaces = completed.filter(r => filter === 'Tutti' || r.type === filter);
+          const pbIds = getPBs(races).map(r => r.id);
+
+          return (
+            <div className="p-4 space-y-6 pt-10">
+              <div className="mt-4"><h1 className="text-4xl font-black text-white">Storico</h1></div>
+              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                  {types.map(t => (
+                      <GlassButton key={t} onClick={() => setFilter(t)} className={`rounded-full px-5 py-2 text-sm font-semibold whitespace-nowrap ${filter === t ? 'bg-sky-500 text-white' : 'text-sky-100'}`}>{t}</GlassButton>
+                  ))}
+              </div>
+              <div className="space-y-4 pt-2">
+                {filteredRaces.length === 0 && <p className="text-white/50 text-center mt-10">Nessuna gara in questa categoria.</p>}
+                {filteredRaces.map(race => (
+                  <GlassCard 
+                    key={race.id} 
+                    onClick={() => onRaceClick(race)}
+                    className="rounded-3xl flex justify-between items-center p-4 gap-2 cursor-pointer hover:bg-white/30 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <p className="text-lg font-bold">{race.event}</p>
+                      <p className="text-xs text-white/70">{race.date} • <span className="text-sky-200 font-semibold">{race.type}</span></p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {pbIds.includes(race.id) && (<div className="flex items-center gap-1 bg-amber-500/20 text-amber-300 px-2 py-1 rounded-md border border-amber-500/30"><Icons.Star /><span className="text-xs font-bold">PB</span></div>)}
+                      <p className="text-xl font-black">{race.time}</p>
+                      {race.medal ? (<div className="w-12 h-12 rounded-full border-2 border-white/20 overflow-hidden shadow-lg ml-1 flex-shrink-0"><img src={race.medal} className="w-full h-full object-cover" /></div>) 
+                      : (<div className="w-12 h-12 rounded-full border-2 border-white/10 bg-white/5 ml-1 flex-shrink-0"></div>)}
+                    </div>
+                  </GlassCard>
+                ))}
+              </div>
+            </div>
+          );
+        };
+
+        const Medals = ({ races, onProcessMedalRequest, onUpdateMedal, selectedMedal, setSelectedMedal }) => {
+          const medaled = races.filter(r => r.medal);
+
+          const getPosition = (index) => {
+              const pos = [
+                  { x: 0, y: 0, size: 'w-32 h-32' }, { x: -110, y: -70, size: 'w-24 h-24' }, { x: 110, y: -70, size: 'w-28 h-28' },         
+                  { x: -110, y: 70, size: 'w-28 h-28' }, { x: 110, y: 70, size: 'w-24 h-24' }, { x: 0, y: -140, size: 'w-20 h-20' }, { x: 0, y: 140, size: 'w-24 h-24' },           
+              ];
+              return pos[index] || { x: Math.cos(index) * 180, y: Math.sin(index) * 180, size: 'w-20 h-20' };
+          };
+
+          const handleUpdateMedalClick = (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              onProcessMedalRequest(file, (processedBase64) => {
+                  onUpdateMedal(selectedMedal.id, processedBase64);
+                  setSelectedMedal(prev => ({...prev, medal: processedBase64})); 
+              });
+          };
+
+          return (
+            <div className="relative w-full h-[calc(100vh-120px)]">
+              <div className="absolute top-14 left-4 z-20 pointer-events-none"><h1 className="text-4xl font-black text-white drop-shadow-lg">Medagliere</h1></div>
+              {medaled.length === 0 && <div className="absolute inset-0 flex items-center justify-center text-white/50 text-center p-4">Scatta la foto alla medaglia quando aggiungi una gara per vederla qui!</div>}
+              
+              <div className="w-full h-full overflow-auto no-scrollbar touch-pan-x touch-pan-y relative flex items-center justify-center">
+                  <div className="relative w-[600px] h-[600px] flex-shrink-0 flex items-center justify-center">
+                      {medaled.map((race, i) => {
+                          const pos = getPosition(i);
+                          return (
+                              <div key={race.id} onClick={() => setSelectedMedal(race)} className={`absolute cursor-pointer transition-transform duration-300 hover:scale-110 hover:z-30 rounded-full border-[3px] border-white/30 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md bg-white/10 p-1 flex items-center justify-center ${pos.size}`} style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}>
+                                  <img src={race.medal} className="w-full h-full object-cover rounded-full pointer-events-none shadow-[inset_0_4px_10px_rgba(0,0,0,0.7)]" />
+                              </div>
+                          );
+                      })}
+                  </div>
+              </div>
+
+              {selectedMedal && (
+                  <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-4" onClick={() => setSelectedMedal(null)}>
+                      <GlassCard className="rounded-3xl w-full max-w-sm flex flex-col items-center relative text-center border-white/20 p-8" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => setSelectedMedal(null)} className="absolute top-4 right-4 text-white/50 hover:text-white"><Icons.X /></button>
+                          
+                          <div className="w-56 h-56 rounded-full border-4 border-amber-300/50 p-2 shadow-[0_0_60px_rgba(251,191,36,0.2)] bg-white/5 mb-6 relative">
+                              <img src={selectedMedal.medal} className="w-full h-full object-cover rounded-full" />
+                          </div>
+                          
+                          <h2 className="text-3xl font-black text-white">{selectedMedal.event}</h2>
+                          <p className="text-lg text-sky-200/80 font-medium mt-1">{selectedMedal.date}</p>
+                          
+                          <div className="mt-6 w-full bg-white/5 rounded-2xl p-4 border border-white/10 shadow-inner mb-4">
+                              <p className="text-xs uppercase text-white/50 font-bold tracking-widest mb-1">Tempo Ufficiale</p>
+                              <p className="text-4xl font-black text-amber-300 drop-shadow-md">{selectedMedal.time}</p>
+                          </div>
+
+                          <label className="flex items-center justify-center gap-2 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold rounded-full cursor-pointer transition-colors">
+                              <Icons.Refresh />
+                              Aggiorna Foto
+                              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleUpdateMedalClick} />
+                          </label>
+                      </GlassCard>
+                  </div>
+              )}
+            </div>
+          );
+        };
+
+        const Impostazioni = ({ username, saveUsername }) => {
+            const [tempName, setTempName] = useState(username || '');
+            return (
+              <div className="p-4 space-y-6 pt-10">
+                  <h1 className="text-4xl font-black text-white mt-4">Impostazioni</h1>
+                  <GlassCard className="rounded-3xl mt-6 p-6">
+                      <p className="text-sky-200 text-xs font-bold mb-3 uppercase tracking-wider">Il Tuo Profilo</p>
+                      
+                      <div className="flex gap-2">
+                        <GlassInput value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="Il tuo nome..." className="text-md" />
+                        <GlassButton onClick={() => {if(tempName) saveUsername(tempName)}} className="px-6 bg-sky-500">Salva</GlassButton>
+                      </div>
+                      
+                      <button onClick={() => auth.signOut()} className="w-full py-3 mt-8 bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/50 text-rose-300 font-bold rounded-full transition-colors">
+                          Disconnettiti (Logout)
+                      </button>
+                  </GlassCard>
+              </div>
+            );
+        };
+
+        // --- AUTH SCREEN (SICUREZZA) ---
+        const AuthScreen = () => {
+            const [isLogin, setIsLogin] = useState(true);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [name, setName] = useState('');
+
+            const handleAuth = async () => {
+                if (!email || !password) return alert("Compila tutti i campi");
+                try {
+                    if (isLogin) {
+                        await auth.signInWithEmailAndPassword(email, password);
+                    } else {
+                        if (!name) return alert("Inserisci il tuo nome!");
+                        const cred = await auth.createUserWithEmailAndPassword(email, password);
+                        // Salva il nome nel database legato all'utente
+                        await db.collection("settings").doc(cred.user.uid).set({ name });
+                    }
+                } catch (e) {
+                    alert("Errore: " + e.message);
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4 z-10 relative">
+                    <GlassCard className="rounded-3xl w-full max-w-sm text-center p-8 space-y-6">
+                        <div className="flex justify-center text-sky-300"><Icons.Lock /></div>
+                        <h2 className="text-2xl font-black text-white">{isLogin ? 'Bentornato' : 'Registrati'}</h2>
+                        
+                        <div className="space-y-3">
+                            {!isLogin && <GlassInput value={name} onChange={e => setName(e.target.value)} placeholder="Il tuo Nome" type="text" />}
+                            <GlassInput value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" />
+                            <GlassInput value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" />
+                        </div>
+
+                        <GlassButton onClick={handleAuth} className="w-full py-3 bg-sky-500 font-bold">{isLogin ? 'Accedi' : 'Crea Account'}</GlassButton>
+                        
+                        <p className="text-xs text-white/50 pt-2 cursor-pointer hover:text-white" onClick={() => setIsLogin(!isLogin)}>
+                            {isLogin ? "Non hai un account? Registrati" : "Hai già un account? Accedi"}
+                        </p>
+                    </GlassCard>
+                </div>
+            )
+        };
+
+        function App() {
+          const [user, setUser] = useState(null);
+          const [username, setUsername] = useState('');
+          const [activeTab, setActiveTab] = useState('dashboard');
+          const [isAddOpen, setIsAddOpen] = useState(false);
+          const [races, setRaces] = useState([]);
+          const [loading, setLoading] = useState(false);
+          
+          const [newRace, setNewRace] = useState({ type: '10k', event: '', date: '', time: '' });
+          const [medalProcessed, setMedalProcessed] = useState(null);
+          
+          const [raceToDelete, setRaceToDelete] = useState(null);
+          const [selectedMedal, setSelectedMedal] = useState(null); // STATO DELLA MEDAGLIA SPOSTATO QUI!
+          
+          const [processState, setProcessState] = useState({ isOpen: false, base64: null, onConfirmCallback: null });
+
+          // ASCOLTA LO STATO DI LOGIN
+          useEffect(() => {
+              if (firebaseConfig.apiKey === "INCOLLA_QUI") return;
+              const unsubscribe = auth.onAuthStateChanged(u => {
+                  setUser(u);
+                  if (u) {
+                      // Fetch nome utente
+                      db.collection("settings").doc(u.uid).get().then(doc => {
+                          if(doc.exists) setUsername(doc.data().name);
+                      });
+                  }
+              });
+              return () => unsubscribe();
+          }, []);
+
+          // CARICA GARE QUANDO LOGGATO
+          useEffect(() => {
+              if (!user) return;
+              setLoading(true);
+              const unsubscribe = db.collection("races")
+                  .where("userId", "==", user.uid)
+                  .onSnapshot((snapshot) => {
+                      const racesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                      racesData.sort((a,b) => new Date(b.date) - new Date(a.date)); 
+                      setRaces(racesData);
+                      setLoading(false);
+                  });
+              return () => unsubscribe();
+          }, [user]);
+
+          const saveUsername = (newName) => {
+              db.collection("settings").doc(user.uid).set({ name: newName });
+              setUsername(newName);
+          };
+
+          const handlePhotoSelection = async (file, onConfirmCallback) => {
+              if (!file) return;
+              try {
+                  const processedBase64 = await isolateMedal(file);
+                  setProcessState({ isOpen: true, base64: processedBase64, onConfirmCallback });
+              } catch (e) { alert("Errore elaborazione immagine."); }
+          };
+
+          const handleSaveNewRace = () => {
+              if (!newRace.event || !newRace.time) return alert("Inserisci Evento e Tempo!");
+              const raceToAdd = {
+                  userId: user.uid, // ORA È LEGATA AL TUO ACCOUNT SICURO
+                  type: newRace.type,
+                  event: newRace.event,
+                  date: newRace.date,
+                  time: newRace.time,
+                  completed: true,
+                  medal: medalProcessed 
+              };
+              db.collection("races").add(raceToAdd).then(() => {
+                  setIsAddOpen(false); setNewRace({ type: '10k', event: '', date: '', time: '' }); setMedalProcessed(null);
+              }).catch(err => alert("Errore: " + err.message));
+          };
+
+          const confirmDeleteRace = () => {
+              if (!raceToDelete) return;
+              db.collection("races").doc(raceToDelete.id).delete()
+                .then(() => setRaceToDelete(null))
+                .catch(err => alert("Errore: " + err.message));
+          };
+
+          const updateMedalInDb = (raceId, newBase64) => {
+              db.collection("races").doc(raceId).update({ medal: newBase64 }).catch(err => alert("Errore: " + err.message));
+          };
+
+          const navItemsLeft = [{ id: 'dashboard', icon: Icons.Home }, { id: 'storico', icon: Icons.History }];
+          const navItemsRight = [{ id: 'medals', icon: Icons.Medal }, { id: 'impostazioni', icon: Icons.Settings }];
+
+          if (!user) {
+              return (
+                <div className="relative">
+                    <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/30 rounded-full blur-[120px] pointer-events-none z-0"></div>
+                    <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-magenta-500/30 rounded-full blur-[120px] pointer-events-none z-0"></div>
+                    <AuthScreen />
+                </div>
+              );
+          }
+
+          // Variabile magica per nascondere la navbar
+          const isAnyModalOpen = isAddOpen || raceToDelete || selectedMedal || processState.isOpen;
+
+          return (
+            <div className="relative min-h-screen">
+              <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/30 rounded-full blur-[120px] pointer-events-none z-0"></div>
+              <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-magenta-500/30 rounded-full blur-[120px] pointer-events-none z-0"></div>
+              
+              <div className="max-w-xl mx-auto pb-32 relative z-10 pt-safe">
+                {loading && <div className="text-center mt-20 text-white/50">Caricamento dati...</div>}
+                {!loading && activeTab === 'dashboard' && <Dashboard races={races} username={username} />}
+                {!loading && activeTab === 'storico' && <Storico races={races} onRaceClick={setRaceToDelete} />}
+                {!loading && activeTab === 'medals' && <Medals races={races} onProcessMedalRequest={handlePhotoSelection} onUpdateMedal={updateMedalInDb} selectedMedal={selectedMedal} setSelectedMedal={setSelectedMedal} />}
+                {!loading && activeTab === 'impostazioni' && <Impostazioni username={username} saveUsername={saveUsername} />}
+              </div>
+
+              {/* Navbar Inferiore (SCOMPARE QUANDO C'È UN MODALE) */}
+              {!isAnyModalOpen && (
+                  <div className="fixed bottom-6 pb-safe left-0 right-0 flex justify-center z-40 px-4 pointer-events-none">
+                    <div className="bg-black/60 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center justify-center gap-2 sm:gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] pointer-events-auto mx-auto w-max px-3 sm:px-4">
+                      {navItemsLeft.map(item => (
+                        <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ${activeTab === item.id ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white'}`}><item.icon /></button>
+                      ))}
+                      <button onClick={() => setIsAddOpen(true)} className="w-14 h-14 bg-gradient-to-tr from-sky-600 to-sky-400 rounded-full flex flex-shrink-0 items-center justify-center text-white shadow-[0_4px_15px_rgba(14,165,233,0.5)] hover:scale-105 transition-transform"><Icons.Plus /></button>
+                      {navItemsRight.map(item => (
+                        <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ${activeTab === item.id ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white'}`}><item.icon /></button>
+                      ))}
+                    </div>
+                  </div>
+              )}
+
+              {/* MODALE CONFERMA PREPROCESSING FOTO */}
+              {processState.isOpen && (
+                  <PreprocessModal 
+                      imageBase64={processState.base64} 
+                      onConfirm={(b64) => {
+                          processState.onConfirmCallback(b64);
+                          setProcessState({ isOpen: false, base64: null, onConfirmCallback: null });
+                      }} 
+                      onCancel={() => setProcessState({ isOpen: false, base64: null, onConfirmCallback: null })} 
+                  />
+              )}
+
+              {/* MODALE ELIMINA GARA */}
+              {raceToDelete && (
+                  <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[50] flex items-center justify-center p-4" onClick={() => setRaceToDelete(null)}>
+                      <GlassCard className="rounded-3xl w-full max-w-sm relative text-center border-white/20 p-8" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => setRaceToDelete(null)} className="absolute top-4 right-4 text-white/50 hover:text-white"><Icons.X /></button>
+                          <div className="flex justify-center mb-4 text-rose-400"><Icons.Trash /></div>
+                          <h2 className="text-2xl font-black text-white mb-2">{raceToDelete.event}</h2>
+                          <p className="text-white/70 font-medium mb-1">{raceToDelete.type}</p>
+                          <p className="text-white/50 text-sm mb-6">{raceToDelete.date} • {raceToDelete.time}</p>
+                          <button onClick={confirmDeleteRace} className="w-full py-3 bg-rose-500/90 hover:bg-rose-500 border border-rose-400 text-white font-bold rounded-full transition-colors shadow-lg shadow-rose-500/30">Elimina Gara</button>
+                      </GlassCard>
+                  </div>
+              )}
+
+              {/* MODALE AGGIUNGI GARA */}
+              {isAddOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[45] flex items-center justify-center p-4 pt-10">
+                  <GlassCard className="rounded-3xl w-full max-w-sm relative p-8 max-h-[85vh] overflow-y-auto no-scrollbar">
+                    <button onClick={() => { setIsAddOpen(false); setMedalProcessed(null); }} className="absolute top-4 right-4 text-white/50 hover:text-white"><Icons.X /></button>
+                    <h2 className="text-2xl font-bold mb-6">Nuova Gara</h2>
+                    <div className="space-y-4">
+                      <select value={newRace.type} onChange={(e) => setNewRace({...newRace, type: e.target.value})} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white focus:ring-2 focus:ring-sky-200 outline-none w-full appearance-none">
+                         <option className="text-black">10k</option><option className="text-black">Mezza Maratona</option><option className="text-black">Maratona</option><option className="text-black">Hyrox</option>
+                      </select>
+                      <GlassInput placeholder="Nome Evento (es. Milano Run)" value={newRace.event} onChange={(e) => setNewRace({...newRace, event: e.target.value})} />
+                      <GlassInput type="date" value={newRace.date} onChange={(e) => setNewRace({...newRace, date: e.target.value})} />
+                      <GlassInput placeholder="Tempo Finale (es. 01:45:00)" value={newRace.time} onChange={(e) => setNewRace({...newRace, time: e.target.value})} />
+                      
+                      <label className={`flex items-center justify-center w-full p-3 bg-white/10 backdrop-blur-md border rounded-xl cursor-pointer hover:bg-white/20 transition-all font-medium ${medalProcessed ? 'border-amber-400 text-amber-300' : 'border-white/20 text-white/80'}`}>
+                          <Icons.Camera />
+                          <span className="ml-2 truncate max-w-[200px]">{medalProcessed ? "Medaglia Pronta!" : "Scatta foto alla Medaglia"}</span>
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoSelection(e.target.files[0], (b64) => setMedalProcessed(b64))} />
+                      </label>
+
+                      {medalProcessed && (
+                          <div className="flex justify-center mt-2">
+                             <div className="w-16 h-16 rounded-full border-2 border-amber-400 p-1 bg-white/10 medal-preview-bg">
+                                <img src={medalProcessed} className="w-full h-full rounded-full" />
+                             </div>
+                          </div>
+                      )}
+
+                      <GlassButton onClick={handleSaveNewRace} className="rounded-full w-full py-3 bg-sky-500 border-sky-400 mt-4 font-bold tracking-wide">
+                        <Icons.Save /> Salva Risultato
+                      </GlassButton>
+                    </div>
+                  </GlassCard>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
