@@ -120,8 +120,10 @@
         const GlassButton = ({ children, className = '', ...props }) => (
           <button {...props} className={`bg-white/20 backdrop-blur-lg border border-white/40 hover:bg-white/30 text-white transition-all duration-300 flex items-center justify-center gap-2 ${className}`}>{children}</button>
         );
+        
+        // Aggiunti box-border, m-0, e appearance-none per garantire la perfetta uniformità su iOS
         const GlassInput = (props) => (
-          <input {...props} className={`bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder:text-white/60 focus:ring-2 focus:ring-sky-200 outline-none w-full ${props.className || ''}`} />
+          <input {...props} className={`bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder:text-white/60 focus:ring-2 focus:ring-sky-200 outline-none w-full box-border m-0 appearance-none ${props.className || ''}`} />
         );
 
         // ==========================================
@@ -154,10 +156,9 @@
             return Object.values(pbs).sort((a, b) => distances[a.type] - distances[b.type]);
         };
 
-        // --- ALGORITMO ISOLAMENTO MEDAGLIA ANTI-CRASH (Nuova Versione Sicura per iOS) ---
         const isolateMedal = (file) => {
             return new Promise((resolve, reject) => {
-                const reader = new FileReader(); // Più sicuro su iOS PWA
+                const reader = new FileReader(); 
                 reader.onload = (e) => {
                     const img = new Image();
                     img.onload = () => {
@@ -194,7 +195,6 @@
             });
         };
 
-        // --- SCHERMATE ---
         const Dashboard = ({ races, username }) => {
           const completed = races.filter(r => r.completed);
           const pbList = getPBs(races);
@@ -328,7 +328,7 @@
                                         onUpdateMedal(selectedMedal.id, b64);
                                         setSelectedMedal(prev => ({...prev, medal: b64})); 
                                     });
-                                    e.target.value = null;
+                                    e.target.value = null; 
                                 }} 
                               />
                           </label>
@@ -441,7 +441,6 @@
           const [raceToDelete, setRaceToDelete] = useState(null);
           const [selectedMedal, setSelectedMedal] = useState(null); 
           
-          // Aggiunto stato di "Caricamento fotocamera"
           const [processState, setProcessState] = useState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: false });
 
           useEffect(() => {
@@ -479,7 +478,6 @@
           const handlePhotoSelection = async (file, onConfirmCallback) => {
               if (!file) return;
               try {
-                  // Mostriamo il loader per far capire all'utente che l'app non è bloccata
                   setProcessState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: true });
                   const processedBase64 = await isolateMedal(file);
                   setProcessState({ isOpen: true, base64: processedBase64, onConfirmCallback, isProcessing: false });
@@ -558,7 +556,6 @@
                   </div>
               )}
 
-              {/* LOADER ELABORAZIONE FOTO */}
               {processState.isProcessing && (
                   <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[70] flex flex-col items-center justify-center p-4">
                       <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -567,7 +564,6 @@
                   </div>
               )}
 
-              {/* MODALE CONFERMA PREPROCESSING FOTO */}
               {processState.isOpen && (
                   <PreprocessModal 
                       imageBase64={processState.base64} 
@@ -579,7 +575,6 @@
                   />
               )}
 
-              {/* MODALE ELIMINA GARA */}
               {raceToDelete && (
                   <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[50] flex items-center justify-center p-4" onClick={() => setRaceToDelete(null)}>
                       <GlassCard className="rounded-3xl w-full max-w-sm relative text-center border-white/20 p-8" onClick={e => e.stopPropagation()}>
@@ -593,28 +588,40 @@
                   </div>
               )}
 
-              {/* MODALE AGGIUNGI GARA */}
               {isAddOpen && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[45] flex items-center justify-center p-4 pt-10">
                   <GlassCard className="rounded-3xl w-full max-w-sm relative p-8 max-h-[85vh] overflow-y-auto no-scrollbar">
                     <button onClick={() => { setIsAddOpen(false); setMedalProcessed(null); }} className="absolute top-4 right-4 text-white/50 hover:text-white"><Icons.X /></button>
                     <h2 className="text-2xl font-bold mb-6">Nuova Gara</h2>
                     <div className="space-y-4">
-                      <select value={newRace.type} onChange={(e) => setNewRace({...newRace, type: e.target.value})} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white focus:ring-2 focus:ring-sky-200 outline-none w-full appearance-none">
+                      
+                      {/* select normalizzata */}
+                      <select value={newRace.type} onChange={(e) => setNewRace({...newRace, type: e.target.value})} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white focus:ring-2 focus:ring-sky-200 outline-none w-full box-border m-0 appearance-none">
                          <option className="text-black">10k</option><option className="text-black">Mezza Maratona</option><option className="text-black">Maratona</option><option className="text-black">Hyrox</option>
                       </select>
+                      
                       <GlassInput placeholder="Nome Evento (es. Milano Run)" value={newRace.event} onChange={(e) => setNewRace({...newRace, event: e.target.value})} />
-                      <GlassInput type="date" value={newRace.date} onChange={(e) => setNewRace({...newRace, date: e.target.value})} />
+                      
+                      {/* TRUCCO INPUT DATA PER IPHONE: Nasce come Testo e diventa Data al tocco */}
+                      <GlassInput 
+                          type={newRace.date ? 'date' : 'text'} 
+                          placeholder="Data Evento" 
+                          value={newRace.date} 
+                          onFocus={(e) => e.target.type = 'date'}
+                          onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                          onChange={(e) => setNewRace({...newRace, date: e.target.value})} 
+                      />
+                      
                       <GlassInput placeholder="Tempo Finale (es. 01:45:00)" value={newRace.time} onChange={(e) => setNewRace({...newRace, time: e.target.value})} />
                       
-                      <label className={`flex items-center justify-center w-full p-3 bg-white/10 backdrop-blur-md border rounded-xl cursor-pointer hover:bg-white/20 transition-all font-medium ${medalProcessed ? 'border-amber-400 text-amber-300' : 'border-white/20 text-white/80'}`}>
+                      <label className={`flex items-center justify-center w-full p-3 bg-white/10 backdrop-blur-md border rounded-xl cursor-pointer hover:bg-white/20 transition-all box-border m-0 font-medium ${medalProcessed ? 'border-amber-400 text-amber-300' : 'border-white/20 text-white/80'}`}>
                           <Icons.Camera />
                           <span className="ml-2 truncate max-w-[200px]">{medalProcessed ? "Medaglia Pronta!" : "Scatta foto alla Medaglia"}</span>
                           <input type="file" accept="image/*" capture="environment" className="hidden" 
                             onChange={(e) => {
                                 const f = e.target.files[0];
                                 if(f) handlePhotoSelection(f, (b64) => setMedalProcessed(b64));
-                                e.target.value = null; // Reset per permettere un secondo scatto se serve
+                                e.target.value = null; 
                             }} 
                           />
                       </label>
@@ -639,7 +646,6 @@
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        // ERRROR BOUNDARY ATTIVO SU TUTTA L'APP!
         root.render(<ErrorBoundary><App /></ErrorBoundary>);
     </script>
 </body>
