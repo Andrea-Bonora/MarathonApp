@@ -66,15 +66,9 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // --- SISTEMA ANTI-CRASH GLOBALE ---
         class ErrorBoundary extends React.Component {
-            constructor(props) {
-                super(props);
-                this.state = { hasError: false, error: null };
-            }
-            static getDerivedStateFromError(error) {
-                return { hasError: true, error };
-            }
+            constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
             render() {
                 if (this.state.hasError) {
                     return (
@@ -82,12 +76,8 @@
                             <div className="bg-white/10 backdrop-blur-xl border border-rose-500/50 p-8 rounded-3xl w-full max-w-md shadow-2xl">
                                 <h2 className="text-2xl font-black text-white mb-2">Errore Imprevisto</h2>
                                 <p className="text-white/70 text-sm mb-4">L'app si è interrotta a causa di un limite di memoria di iOS.</p>
-                                <div className="bg-black/50 p-3 rounded-lg text-rose-300 font-mono text-xs overflow-auto text-left mb-6 max-h-32">
-                                    {this.state.error?.toString()}
-                                </div>
-                                <button onClick={() => window.location.reload()} className="w-full py-4 bg-rose-500 hover:bg-rose-400 text-white font-bold rounded-full transition-colors shadow-lg">
-                                    Riavvia l'App in modo sicuro
-                                </button>
+                                <div className="bg-black/50 p-3 rounded-lg text-rose-300 font-mono text-xs overflow-auto text-left mb-6 max-h-32">{this.state.error?.toString()}</div>
+                                <button onClick={() => window.location.reload()} className="w-full py-4 bg-rose-500 hover:bg-rose-400 text-white font-bold rounded-full transition-colors shadow-lg">Riavvia l'App</button>
                             </div>
                         </div>
                     );
@@ -96,7 +86,6 @@
             }
         }
 
-        // --- ICONE SVG ---
         const Icons = {
           Home: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
           History: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
@@ -121,10 +110,25 @@
           <button {...props} className={`bg-white/20 backdrop-blur-lg border border-white/40 hover:bg-white/30 text-white transition-all duration-300 flex items-center justify-center gap-2 ${className}`}>{children}</button>
         );
         
-        // Aggiunti box-border, m-0, e appearance-none per garantire la perfetta uniformità su iOS
+        // Input base con larghezze e margini rigorosi per iOS
         const GlassInput = (props) => (
-          <input {...props} className={`bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder:text-white/60 focus:ring-2 focus:ring-sky-200 outline-none w-full box-border m-0 appearance-none ${props.className || ''}`} />
+          <input {...props} className={`block bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder:text-white/60 focus:ring-2 focus:ring-sky-200 outline-none w-full min-w-0 box-border m-0 appearance-none ${props.className || ''}`} />
         );
+
+        // NUOVO COMPONENTE PER LA DATA: Appare come Testo finché non viene sfiorato
+        const GlassDateInput = ({ value, onChange, placeholder }) => {
+            const [type, setType] = useState('text');
+            return (
+                <GlassInput
+                    type={value ? 'date' : type}
+                    placeholder={placeholder}
+                    onFocus={() => setType('date')}
+                    onBlur={() => setType('text')}
+                    value={value}
+                    onChange={onChange}
+                />
+            );
+        };
 
         // ==========================================
         // 1. INCOLLA QUI LA TUA CONFIGURAZIONE FIREBASE
@@ -183,9 +187,7 @@
                             ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, SIZE, SIZE);
                             
                             resolve(canvas.toDataURL('image/png', 0.9));
-                        } catch (err) {
-                            reject(err.message);
-                        }
+                        } catch (err) { reject(err.message); }
                     };
                     img.onerror = () => reject("Impossibile leggere il file immagine");
                     img.src = e.target.result;
@@ -234,27 +236,37 @@
 
         const Storico = ({ races, onRaceClick }) => {
           const [filter, setFilter] = useState('Tutti');
-          const types = ['Tutti', '10k', 'Mezza Maratona', 'Maratona', 'Hyrox'];
           const completed = races.filter(r => r.completed);
+          
+          // Calcolo categorie dinamiche: mostra solo le categorie in cui l'utente ha completato almeno una gara
+          const standardOrder = ['10k', 'Mezza Maratona', 'Maratona', 'Hyrox'];
+          const existingTypes = standardOrder.filter(type => completed.some(r => r.type === type));
+          const availableFilters = ['Tutti', ...existingTypes];
+
+          // Se il filtro attuale scompare, torna a 'Tutti'
+          useEffect(() => {
+              if (filter !== 'Tutti' && !existingTypes.includes(filter)) {
+                  setFilter('Tutti');
+              }
+          }, [races, filter, existingTypes]);
+
           const filteredRaces = completed.filter(r => filter === 'Tutti' || r.type === filter);
           const pbIds = getPBs(races).map(r => r.id);
 
           return (
             <div className="p-4 space-y-6 pt-10">
               <div className="mt-4"><h1 className="text-4xl font-black text-white">Storico</h1></div>
+              
               <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                  {types.map(t => (
+                  {availableFilters.map(t => (
                       <GlassButton key={t} onClick={() => setFilter(t)} className={`rounded-full px-5 py-2 text-sm font-semibold whitespace-nowrap ${filter === t ? 'bg-sky-500 text-white' : 'text-sky-100'}`}>{t}</GlassButton>
                   ))}
               </div>
+              
               <div className="space-y-4 pt-2">
-                {filteredRaces.length === 0 && <p className="text-white/50 text-center mt-10">Nessuna gara in questa categoria.</p>}
+                {filteredRaces.length === 0 && <p className="text-white/50 text-center mt-10">Nessuna gara registrata.</p>}
                 {filteredRaces.map(race => (
-                  <GlassCard 
-                    key={race.id} 
-                    onClick={() => onRaceClick(race)}
-                    className="rounded-3xl flex justify-between items-center p-4 gap-2 cursor-pointer hover:bg-white/30 transition-colors"
-                  >
+                  <GlassCard key={race.id} onClick={() => onRaceClick(race)} className="rounded-3xl flex justify-between items-center p-4 gap-2 cursor-pointer hover:bg-white/30 transition-colors">
                     <div className="flex-1">
                       <p className="text-lg font-bold">{race.event}</p>
                       <p className="text-xs text-white/70">{race.date} • <span className="text-sky-200 font-semibold">{race.type}</span></p>
@@ -274,13 +286,20 @@
 
         const Medals = ({ races, onProcessMedalRequest, onUpdateMedal, selectedMedal, setSelectedMedal }) => {
           const medaled = races.filter(r => r.medal);
-
           const getPosition = (index) => {
               const pos = [
                   { x: 0, y: 0, size: 'w-32 h-32' }, { x: -110, y: -70, size: 'w-24 h-24' }, { x: 110, y: -70, size: 'w-28 h-28' },         
                   { x: -110, y: 70, size: 'w-28 h-28' }, { x: 110, y: 70, size: 'w-24 h-24' }, { x: 0, y: -140, size: 'w-20 h-20' }, { x: 0, y: 140, size: 'w-24 h-24' },           
               ];
               return pos[index] || { x: Math.cos(index) * 180, y: Math.sin(index) * 180, size: 'w-20 h-20' };
+          };
+          const handleUpdateMedalClick = (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              onProcessMedalRequest(file, (processedBase64) => {
+                  onUpdateMedal(selectedMedal.id, processedBase64);
+                  setSelectedMedal(prev => ({...prev, medal: processedBase64})); 
+              });
           };
 
           return (
@@ -305,32 +324,17 @@
                   <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[50] flex items-center justify-center p-4" onClick={() => setSelectedMedal(null)}>
                       <GlassCard className="rounded-3xl w-full max-w-sm flex flex-col items-center relative text-center border-white/20 p-8" onClick={e => e.stopPropagation()}>
                           <button onClick={() => setSelectedMedal(null)} className="absolute top-4 right-4 text-white/50 hover:text-white"><Icons.X /></button>
-                          
                           <div className="w-56 h-56 rounded-full border-4 border-amber-300/50 p-2 shadow-[0_0_60px_rgba(251,191,36,0.2)] bg-white/5 mb-6 relative">
                               <img src={selectedMedal.medal} className="w-full h-full object-cover rounded-full" />
                           </div>
-                          
                           <h2 className="text-3xl font-black text-white">{selectedMedal.event}</h2>
                           <p className="text-lg text-sky-200/80 font-medium mt-1">{selectedMedal.date}</p>
-                          
                           <div className="mt-6 w-full bg-white/5 rounded-2xl p-4 border border-white/10 shadow-inner mb-4">
                               <p className="text-xs uppercase text-white/50 font-bold tracking-widest mb-1">Tempo Ufficiale</p>
                               <p className="text-4xl font-black text-amber-300 drop-shadow-md">{selectedMedal.time}</p>
                           </div>
-
                           <label className="flex items-center justify-center gap-2 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold rounded-full cursor-pointer transition-colors">
-                              <Icons.Refresh />
-                              Aggiorna Foto
-                              <input type="file" accept="image/*" capture="environment" className="hidden" 
-                                onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if(file) onProcessMedalRequest(file, (b64) => {
-                                        onUpdateMedal(selectedMedal.id, b64);
-                                        setSelectedMedal(prev => ({...prev, medal: b64})); 
-                                    });
-                                    e.target.value = null; 
-                                }} 
-                              />
+                              <Icons.Refresh /> Aggiorna Foto <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleUpdateMedalClick} />
                           </label>
                       </GlassCard>
                   </div>
@@ -346,15 +350,11 @@
                   <h1 className="text-4xl font-black text-white mt-4">Impostazioni</h1>
                   <GlassCard className="rounded-3xl mt-6 p-6">
                       <p className="text-sky-200 text-xs font-bold mb-3 uppercase tracking-wider">Il Tuo Profilo</p>
-                      
                       <div className="flex gap-2">
                         <GlassInput value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="Il tuo nome..." className="text-md" />
                         <GlassButton onClick={() => {if(tempName) saveUsername(tempName)}} className="px-6 bg-sky-500">Salva</GlassButton>
                       </div>
-                      
-                      <button onClick={() => auth.signOut()} className="w-full py-3 mt-8 bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/50 text-rose-300 font-bold rounded-full transition-colors">
-                          Disconnettiti (Logout)
-                      </button>
+                      <button onClick={() => auth.signOut()} className="w-full py-3 mt-8 bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/50 text-rose-300 font-bold rounded-full transition-colors">Disconnettiti</button>
                   </GlassCard>
               </div>
             );
@@ -369,16 +369,13 @@
             const handleAuth = async () => {
                 if (!email || !password) return alert("Compila tutti i campi");
                 try {
-                    if (isLogin) {
-                        await auth.signInWithEmailAndPassword(email, password);
-                    } else {
+                    if (isLogin) { await auth.signInWithEmailAndPassword(email, password); } 
+                    else {
                         if (!name) return alert("Inserisci il tuo nome!");
                         const cred = await auth.createUserWithEmailAndPassword(email, password);
                         await db.collection("settings").doc(cred.user.uid).set({ name });
                     }
-                } catch (e) {
-                    alert("Errore: " + e.message);
-                }
+                } catch (e) { alert("Errore: " + e.message); }
             };
 
             return (
@@ -386,15 +383,12 @@
                     <GlassCard className="rounded-3xl w-full max-w-sm text-center p-8 space-y-6">
                         <div className="flex justify-center text-sky-300"><Icons.Lock /></div>
                         <h2 className="text-2xl font-black text-white">{isLogin ? 'Bentornato' : 'Registrati'}</h2>
-                        
                         <div className="space-y-3">
                             {!isLogin && <GlassInput value={name} onChange={e => setName(e.target.value)} placeholder="Il tuo Nome" type="text" />}
                             <GlassInput value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" />
                             <GlassInput value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" />
                         </div>
-
                         <GlassButton onClick={handleAuth} className="w-full py-3 bg-sky-500 font-bold">{isLogin ? 'Accedi' : 'Crea Account'}</GlassButton>
-                        
                         <p className="text-xs text-white/50 pt-2 cursor-pointer hover:text-white" onClick={() => setIsLogin(!isLogin)}>
                             {isLogin ? "Non hai un account? Registrati" : "Hai già un account? Accedi"}
                         </p>
@@ -408,20 +402,13 @@
                 <div className="w-full max-w-sm flex flex-col items-center text-center">
                     <h2 className="text-2xl font-black text-white mb-2">Isolamento Medaglia</h2>
                     <p className="text-sm text-white/60 mb-8">Abbiamo ritagliato il soggetto al centro.</p>
-                    
                     <div className="w-64 h-64 rounded-full border-2 border-white/20 medal-preview-bg shadow-[0_0_50px_rgba(255,255,255,0.1)] p-2 mb-10">
                         <img src={imageBase64} className="w-full h-full object-cover rounded-full" />
                     </div>
-
                     <p className="text-lg font-bold text-white mb-6">Confermi questo risultato?</p>
-                    
                     <div className="flex gap-4 w-full">
-                        <button onClick={onCancel} className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-full transition-colors">
-                            Riprova
-                        </button>
-                        <button onClick={() => onConfirm(imageBase64)} className="flex-1 py-3 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-full shadow-lg shadow-sky-500/30 transition-colors">
-                            Conferma
-                        </button>
+                        <button onClick={onCancel} className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-full transition-colors">Riprova</button>
+                        <button onClick={() => onConfirm(imageBase64)} className="flex-1 py-3 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-full shadow-lg shadow-sky-500/30 transition-colors">Conferma</button>
                     </div>
                 </div>
             </div>
@@ -448,9 +435,7 @@
               const unsubscribe = auth.onAuthStateChanged(u => {
                   setUser(u);
                   if (u) {
-                      db.collection("settings").doc(u.uid).get().then(doc => {
-                          if(doc.exists) setUsername(doc.data().name);
-                      });
+                      db.collection("settings").doc(u.uid).get().then(doc => { if(doc.exists) setUsername(doc.data().name); });
                   }
               });
               return () => unsubscribe();
@@ -459,21 +444,16 @@
           useEffect(() => {
               if (!user) return;
               setLoading(true);
-              const unsubscribe = db.collection("races")
-                  .where("userId", "==", user.uid)
-                  .onSnapshot((snapshot) => {
-                      const racesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                      racesData.sort((a,b) => new Date(b.date) - new Date(a.date)); 
-                      setRaces(racesData);
-                      setLoading(false);
-                  });
+              const unsubscribe = db.collection("races").where("userId", "==", user.uid).onSnapshot((snapshot) => {
+                  const racesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                  racesData.sort((a,b) => new Date(b.date) - new Date(a.date)); 
+                  setRaces(racesData);
+                  setLoading(false);
+              });
               return () => unsubscribe();
           }, [user]);
 
-          const saveUsername = (newName) => {
-              db.collection("settings").doc(user.uid).set({ name: newName });
-              setUsername(newName);
-          };
+          const saveUsername = (newName) => { db.collection("settings").doc(user.uid).set({ name: newName }); setUsername(newName); };
 
           const handlePhotoSelection = async (file, onConfirmCallback) => {
               if (!file) return;
@@ -481,22 +461,14 @@
                   setProcessState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: true });
                   const processedBase64 = await isolateMedal(file);
                   setProcessState({ isOpen: true, base64: processedBase64, onConfirmCallback, isProcessing: false });
-              } catch (e) { 
-                  alert("Errore: " + e); 
-                  setProcessState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: false });
-              }
+              } catch (e) { alert("Errore: " + e); setProcessState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: false }); }
           };
 
           const handleSaveNewRace = () => {
               if (!newRace.event || !newRace.time) return alert("Inserisci Evento e Tempo!");
               const raceToAdd = {
-                  userId: user.uid, 
-                  type: newRace.type,
-                  event: newRace.event,
-                  date: newRace.date,
-                  time: newRace.time,
-                  completed: true,
-                  medal: medalProcessed 
+                  userId: user.uid, type: newRace.type, event: newRace.event, date: newRace.date,
+                  time: newRace.time, completed: true, medal: medalProcessed 
               };
               db.collection("races").add(raceToAdd).then(() => {
                   setIsAddOpen(false); setNewRace({ type: '10k', event: '', date: '', time: '' }); setMedalProcessed(null);
@@ -505,14 +477,10 @@
 
           const confirmDeleteRace = () => {
               if (!raceToDelete) return;
-              db.collection("races").doc(raceToDelete.id).delete()
-                .then(() => setRaceToDelete(null))
-                .catch(err => alert("Errore: " + err.message));
+              db.collection("races").doc(raceToDelete.id).delete().then(() => setRaceToDelete(null)).catch(err => alert("Errore: " + err.message));
           };
 
-          const updateMedalInDb = (raceId, newBase64) => {
-              db.collection("races").doc(raceId).update({ medal: newBase64 }).catch(err => alert("Errore: " + err.message));
-          };
+          const updateMedalInDb = (raceId, newBase64) => { db.collection("races").doc(raceId).update({ medal: newBase64 }).catch(err => alert("Errore: " + err.message)); };
 
           const navItemsLeft = [{ id: 'dashboard', icon: Icons.Home }, { id: 'storico', icon: Icons.History }];
           const navItemsRight = [{ id: 'medals', icon: Icons.Medal }, { id: 'impostazioni', icon: Icons.Settings }];
@@ -595,26 +563,22 @@
                     <h2 className="text-2xl font-bold mb-6">Nuova Gara</h2>
                     <div className="space-y-4">
                       
-                      {/* select normalizzata */}
-                      <select value={newRace.type} onChange={(e) => setNewRace({...newRace, type: e.target.value})} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white focus:ring-2 focus:ring-sky-200 outline-none w-full box-border m-0 appearance-none">
+                      <select value={newRace.type} onChange={(e) => setNewRace({...newRace, type: e.target.value})} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white focus:ring-2 focus:ring-sky-200 outline-none w-full box-border min-w-0 m-0 appearance-none">
                          <option className="text-black">10k</option><option className="text-black">Mezza Maratona</option><option className="text-black">Maratona</option><option className="text-black">Hyrox</option>
                       </select>
                       
                       <GlassInput placeholder="Nome Evento (es. Milano Run)" value={newRace.event} onChange={(e) => setNewRace({...newRace, event: e.target.value})} />
                       
-                      {/* TRUCCO INPUT DATA PER IPHONE: Nasce come Testo e diventa Data al tocco */}
-                      <GlassInput 
-                          type={newRace.date ? 'date' : 'text'} 
+                      {/* INPUT DATA COMPATIBILE CON IOS */}
+                      <GlassDateInput 
                           placeholder="Data Evento" 
                           value={newRace.date} 
-                          onFocus={(e) => e.target.type = 'date'}
-                          onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
                           onChange={(e) => setNewRace({...newRace, date: e.target.value})} 
                       />
                       
                       <GlassInput placeholder="Tempo Finale (es. 01:45:00)" value={newRace.time} onChange={(e) => setNewRace({...newRace, time: e.target.value})} />
                       
-                      <label className={`flex items-center justify-center w-full p-3 bg-white/10 backdrop-blur-md border rounded-xl cursor-pointer hover:bg-white/20 transition-all box-border m-0 font-medium ${medalProcessed ? 'border-amber-400 text-amber-300' : 'border-white/20 text-white/80'}`}>
+                      <label className={`flex items-center justify-center w-full p-3 bg-white/10 backdrop-blur-md border rounded-xl cursor-pointer hover:bg-white/20 transition-all font-medium box-border m-0 ${medalProcessed ? 'border-amber-400 text-amber-300' : 'border-white/20 text-white/80'}`}>
                           <Icons.Camera />
                           <span className="ml-2 truncate max-w-[200px]">{medalProcessed ? "Medaglia Pronta!" : "Scatta foto alla Medaglia"}</span>
                           <input type="file" accept="image/*" capture="environment" className="hidden" 
