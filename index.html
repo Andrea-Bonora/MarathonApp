@@ -109,13 +109,10 @@
         const GlassButton = ({ children, className = '', ...props }) => (
           <button {...props} className={`bg-white/20 backdrop-blur-lg border border-white/40 hover:bg-white/30 text-white transition-all duration-300 flex items-center justify-center gap-2 ${className}`}>{children}</button>
         );
-        
-        // Input base con larghezze e margini rigorosi per iOS
         const GlassInput = (props) => (
           <input {...props} className={`block bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white placeholder:text-white/60 focus:ring-2 focus:ring-sky-200 outline-none w-full min-w-0 box-border m-0 appearance-none ${props.className || ''}`} />
         );
 
-        // NUOVO COMPONENTE PER LA DATA: Appare come Testo finché non viene sfiorato
         const GlassDateInput = ({ value, onChange, placeholder }) => {
             const [type, setType] = useState('text');
             return (
@@ -134,15 +131,13 @@
         // 1. INCOLLA QUI LA TUA CONFIGURAZIONE FIREBASE
         // ==========================================
         const firebaseConfig = {
-            apiKey: "AIzaSyBCvUfyCeAhnPbmwRiPJyfDQORkjRIhFqo",
-            authDomain: "marathonapp-c58f6.firebaseapp.com",
-            projectId: "marathonapp-c58f6",
-            storageBucket: "marathonapp-c58f6.firebasestorage.app",
-            messagingSenderId: "1069829485856",
-            appId: "1:1069829485856:web:32de2e2f3ff12d27d19345",
-            measurementId: "G-791179V957"
+          apiKey: "INCOLLA_QUI",
+          authDomain: "INCOLLA_QUI",
+          projectId: "INCOLLA_QUI",
+          storageBucket: "INCOLLA_QUI",
+          messagingSenderId: "INCOLLA_QUI",
+          appId: "INCOLLA_QUI"
         };
-
         
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
@@ -170,22 +165,17 @@
                             const SIZE = 400; 
                             const minDim = Math.min(img.width, img.height);
                             if (minDim <= 0) throw new Error("Foto non valida");
-                            
                             const canvas = document.createElement('canvas');
                             canvas.width = SIZE; canvas.height = SIZE;
                             const ctx = canvas.getContext('2d');
-                            
                             ctx.clearRect(0, 0, SIZE, SIZE);
-                            
                             const sx = (img.width - minDim) / 2;
                             const sy = (img.height - minDim) / 2;
-                            
                             ctx.beginPath();
                             ctx.arc(SIZE/2, SIZE/2, SIZE/2, 0, Math.PI * 2);
                             ctx.closePath();
                             ctx.clip();
                             ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, SIZE, SIZE);
-                            
                             resolve(canvas.toDataURL('image/png', 0.9));
                         } catch (err) { reject(err.message); }
                     };
@@ -238,16 +228,12 @@
           const [filter, setFilter] = useState('Tutti');
           const completed = races.filter(r => r.completed);
           
-          // Calcolo categorie dinamiche: mostra solo le categorie in cui l'utente ha completato almeno una gara
           const standardOrder = ['10k', 'Mezza Maratona', 'Maratona', 'Hyrox'];
           const existingTypes = standardOrder.filter(type => completed.some(r => r.type === type));
           const availableFilters = ['Tutti', ...existingTypes];
 
-          // Se il filtro attuale scompare, torna a 'Tutti'
           useEffect(() => {
-              if (filter !== 'Tutti' && !existingTypes.includes(filter)) {
-                  setFilter('Tutti');
-              }
+              if (filter !== 'Tutti' && !existingTypes.includes(filter)) setFilter('Tutti');
           }, [races, filter, existingTypes]);
 
           const filteredRaces = completed.filter(r => filter === 'Tutti' || r.type === filter);
@@ -255,14 +241,12 @@
 
           return (
             <div className="p-4 space-y-6 pt-10">
-              <div className="mt-4"><h1 className="text-4xl font-black text-white">Storicox</h1></div>
-              
+              <div className="mt-4"><h1 className="text-4xl font-black text-white">Storico</h1></div>
               <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                   {availableFilters.map(t => (
                       <GlassButton key={t} onClick={() => setFilter(t)} className={`rounded-full px-5 py-2 text-sm font-semibold whitespace-nowrap ${filter === t ? 'bg-sky-500 text-white' : 'text-sky-100'}`}>{t}</GlassButton>
                   ))}
               </div>
-              
               <div className="space-y-4 pt-2">
                 {filteredRaces.length === 0 && <p className="text-white/50 text-center mt-10">Nessuna gara registrata.</p>}
                 {filteredRaces.map(race => (
@@ -464,6 +448,25 @@
               } catch (e) { alert("Errore: " + e); setProcessState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: false }); }
           };
 
+          // FUNZIONE DI FORMATTAZIONE AUTOMATICA DEL TEMPO (HH:MM:SS)
+          const handleTimeChange = (e) => {
+              // Rimuovi tutto ciò che non è un numero
+              let val = e.target.value.replace(/\D/g, '');
+              
+              // Limita a 6 numeri totali (hhmmss)
+              if (val.length > 6) val = val.slice(0, 6);
+              
+              // Aggiungi i due punti in automatico
+              let formatted = val;
+              if (val.length > 4) {
+                  formatted = `${val.slice(0, 2)}:${val.slice(2, 4)}:${val.slice(4)}`;
+              } else if (val.length > 2) {
+                  formatted = `${val.slice(0, 2)}:${val.slice(2)}`;
+              }
+              
+              setNewRace({...newRace, time: formatted});
+          };
+
           const handleSaveNewRace = () => {
               if (!newRace.event || !newRace.time) return alert("Inserisci Evento e Tempo!");
               const raceToAdd = {
@@ -569,14 +572,20 @@
                       
                       <GlassInput placeholder="Nome Evento (es. Milano Run)" value={newRace.event} onChange={(e) => setNewRace({...newRace, event: e.target.value})} />
                       
-                      {/* INPUT DATA COMPATIBILE CON IOS */}
                       <GlassDateInput 
                           placeholder="Data Evento" 
                           value={newRace.date} 
                           onChange={(e) => setNewRace({...newRace, date: e.target.value})} 
                       />
                       
-                      <GlassInput placeholder="Tempo Finale (es. 01:45:00)" value={newRace.time} onChange={(e) => setNewRace({...newRace, time: e.target.value})} />
+                      {/* NUOVO INPUT TEMPO FORMATTATO (Solo Numeri) */}
+                      <GlassInput 
+                          placeholder="Tempo (es. 01:45:00)" 
+                          value={newRace.time} 
+                          onChange={handleTimeChange} 
+                          inputMode="numeric"
+                          maxLength="8"
+                      />
                       
                       <label className={`flex items-center justify-center w-full p-3 bg-white/10 backdrop-blur-md border rounded-xl cursor-pointer hover:bg-white/20 transition-all font-medium box-border m-0 ${medalProcessed ? 'border-amber-400 text-amber-300' : 'border-white/20 text-white/80'}`}>
                           <Icons.Camera />
