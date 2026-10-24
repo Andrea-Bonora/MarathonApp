@@ -9,7 +9,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MarathonApp">
 
-    <!-- GENERATORE ICONA APP -->
     <script>
       (function() {
           const canvas = document.createElement('canvas');
@@ -50,7 +49,6 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- LIBRERIE FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
@@ -58,10 +56,7 @@
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .medal-preview-bg {
-            background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
+        .medal-preview-bg { background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 20px 20px; }
         body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
     </style>
 </head>
@@ -70,6 +65,36 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
+
+        // --- SISTEMA ANTI-CRASH GLOBALE ---
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center z-[100] relative">
+                            <div className="bg-white/10 backdrop-blur-xl border border-rose-500/50 p-8 rounded-3xl w-full max-w-md shadow-2xl">
+                                <h2 className="text-2xl font-black text-white mb-2">Errore Imprevisto</h2>
+                                <p className="text-white/70 text-sm mb-4">L'app si è interrotta a causa di un limite di memoria di iOS.</p>
+                                <div className="bg-black/50 p-3 rounded-lg text-rose-300 font-mono text-xs overflow-auto text-left mb-6 max-h-32">
+                                    {this.state.error?.toString()}
+                                </div>
+                                <button onClick={() => window.location.reload()} className="w-full py-4 bg-rose-500 hover:bg-rose-400 text-white font-bold rounded-full transition-colors shadow-lg">
+                                    Riavvia l'App in modo sicuro
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
 
         // --- ICONE SVG ---
         const Icons = {
@@ -129,45 +154,43 @@
             return Object.values(pbs).sort((a, b) => distances[a.type] - distances[b.type]);
         };
 
-        // --- ALGORITMO ISOLAMENTO MEDAGLIA ANTI-CRASH PER IPHONE ---
+        // --- ALGORITMO ISOLAMENTO MEDAGLIA ANTI-CRASH (Nuova Versione Sicura per iOS) ---
         const isolateMedal = (file) => {
             return new Promise((resolve, reject) => {
-                const img = new Image();
-                // Usa objectURL invece del pesantissimo DataURL per non saturare la RAM di iOS
-                const objectUrl = URL.createObjectURL(file);
-                
-                img.onload = () => {
-                    try {
-                        const canvas = document.createElement('canvas');
-                        const SIZE = 400; 
-                        canvas.width = SIZE; canvas.height = SIZE;
-                        const ctx = canvas.getContext('2d');
-                        
-                        ctx.clearRect(0, 0, SIZE, SIZE);
-                        const minDim = Math.min(img.width, img.height);
-                        const sx = (img.width - minDim) / 2;
-                        const sy = (img.height - minDim) / 2;
-                        
-                        ctx.beginPath();
-                        ctx.arc(SIZE/2, SIZE/2, SIZE/2, 0, Math.PI * 2);
-                        ctx.closePath();
-                        ctx.clip();
-                        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, SIZE, SIZE);
-                        
-                        const base64 = canvas.toDataURL('image/png');
-                        
-                        // Svuota istantaneamente la memoria! Fondamentale per l'iPhone
-                        URL.revokeObjectURL(objectUrl);
-                        resolve(base64);
-                    } catch (err) {
-                        reject(err);
-                    }
+                const reader = new FileReader(); // Più sicuro su iOS PWA
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        try {
+                            const SIZE = 400; 
+                            const minDim = Math.min(img.width, img.height);
+                            if (minDim <= 0) throw new Error("Foto non valida");
+                            
+                            const canvas = document.createElement('canvas');
+                            canvas.width = SIZE; canvas.height = SIZE;
+                            const ctx = canvas.getContext('2d');
+                            
+                            ctx.clearRect(0, 0, SIZE, SIZE);
+                            
+                            const sx = (img.width - minDim) / 2;
+                            const sy = (img.height - minDim) / 2;
+                            
+                            ctx.beginPath();
+                            ctx.arc(SIZE/2, SIZE/2, SIZE/2, 0, Math.PI * 2);
+                            ctx.closePath();
+                            ctx.clip();
+                            ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, SIZE, SIZE);
+                            
+                            resolve(canvas.toDataURL('image/png', 0.9));
+                        } catch (err) {
+                            reject(err.message);
+                        }
+                    };
+                    img.onerror = () => reject("Impossibile leggere il file immagine");
+                    img.src = e.target.result;
                 };
-                img.onerror = () => {
-                    URL.revokeObjectURL(objectUrl);
-                    reject("Errore lettura immagine");
-                };
-                img.src = objectUrl;
+                reader.onerror = () => reject("Errore caricamento file");
+                reader.readAsDataURL(file);
             });
         };
 
@@ -260,15 +283,6 @@
               return pos[index] || { x: Math.cos(index) * 180, y: Math.sin(index) * 180, size: 'w-20 h-20' };
           };
 
-          const handleUpdateMedalClick = (e) => {
-              const file = e.target.files[0];
-              if (!file) return;
-              onProcessMedalRequest(file, (processedBase64) => {
-                  onUpdateMedal(selectedMedal.id, processedBase64);
-                  setSelectedMedal(prev => ({...prev, medal: processedBase64})); 
-              });
-          };
-
           return (
             <div className="relative w-full h-[calc(100vh-120px)]">
               <div className="absolute top-14 left-4 z-20 pointer-events-none"><h1 className="text-4xl font-black text-white drop-shadow-lg">Medagliere</h1></div>
@@ -307,7 +321,16 @@
                           <label className="flex items-center justify-center gap-2 w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold rounded-full cursor-pointer transition-colors">
                               <Icons.Refresh />
                               Aggiorna Foto
-                              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleUpdateMedalClick} />
+                              <input type="file" accept="image/*" capture="environment" className="hidden" 
+                                onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if(file) onProcessMedalRequest(file, (b64) => {
+                                        onUpdateMedal(selectedMedal.id, b64);
+                                        setSelectedMedal(prev => ({...prev, medal: b64})); 
+                                    });
+                                    e.target.value = null;
+                                }} 
+                              />
                           </label>
                       </GlassCard>
                   </div>
@@ -337,7 +360,6 @@
             );
         };
 
-        // --- AUTH SCREEN (SICUREZZA) ---
         const AuthScreen = () => {
             const [isLogin, setIsLogin] = useState(true);
             const [email, setEmail] = useState('');
@@ -385,7 +407,7 @@
             <div className="fixed inset-0 bg-black/90 backdrop-blur-2xl z-[60] flex items-center justify-center p-4">
                 <div className="w-full max-w-sm flex flex-col items-center text-center">
                     <h2 className="text-2xl font-black text-white mb-2">Isolamento Medaglia</h2>
-                    <p className="text-sm text-white/60 mb-8">Abbiamo ritagliato il soggetto al centro e rimosso lo sfondo.</p>
+                    <p className="text-sm text-white/60 mb-8">Abbiamo ritagliato il soggetto al centro.</p>
                     
                     <div className="w-64 h-64 rounded-full border-2 border-white/20 medal-preview-bg shadow-[0_0_50px_rgba(255,255,255,0.1)] p-2 mb-10">
                         <img src={imageBase64} className="w-full h-full object-cover rounded-full" />
@@ -419,7 +441,8 @@
           const [raceToDelete, setRaceToDelete] = useState(null);
           const [selectedMedal, setSelectedMedal] = useState(null); 
           
-          const [processState, setProcessState] = useState({ isOpen: false, base64: null, onConfirmCallback: null });
+          // Aggiunto stato di "Caricamento fotocamera"
+          const [processState, setProcessState] = useState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: false });
 
           useEffect(() => {
               if (firebaseConfig.apiKey === "INCOLLA_QUI") return;
@@ -456,9 +479,14 @@
           const handlePhotoSelection = async (file, onConfirmCallback) => {
               if (!file) return;
               try {
+                  // Mostriamo il loader per far capire all'utente che l'app non è bloccata
+                  setProcessState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: true });
                   const processedBase64 = await isolateMedal(file);
-                  setProcessState({ isOpen: true, base64: processedBase64, onConfirmCallback });
-              } catch (e) { alert("Errore elaborazione immagine."); }
+                  setProcessState({ isOpen: true, base64: processedBase64, onConfirmCallback, isProcessing: false });
+              } catch (e) { 
+                  alert("Errore: " + e); 
+                  setProcessState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: false });
+              }
           };
 
           const handleSaveNewRace = () => {
@@ -501,7 +529,7 @@
               );
           }
 
-          const isAnyModalOpen = isAddOpen || raceToDelete || selectedMedal || processState.isOpen;
+          const isAnyModalOpen = isAddOpen || raceToDelete || selectedMedal || processState.isOpen || processState.isProcessing;
 
           return (
             <div className="relative min-h-screen">
@@ -530,17 +558,28 @@
                   </div>
               )}
 
+              {/* LOADER ELABORAZIONE FOTO */}
+              {processState.isProcessing && (
+                  <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[70] flex flex-col items-center justify-center p-4">
+                      <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                      <h2 className="text-xl font-bold text-white">Ritagliando la medaglia...</h2>
+                      <p className="text-white/60 text-sm mt-2">Potrebbe volerci qualche secondo</p>
+                  </div>
+              )}
+
+              {/* MODALE CONFERMA PREPROCESSING FOTO */}
               {processState.isOpen && (
                   <PreprocessModal 
                       imageBase64={processState.base64} 
                       onConfirm={(b64) => {
                           processState.onConfirmCallback(b64);
-                          setProcessState({ isOpen: false, base64: null, onConfirmCallback: null });
+                          setProcessState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: false });
                       }} 
-                      onCancel={() => setProcessState({ isOpen: false, base64: null, onConfirmCallback: null })} 
+                      onCancel={() => setProcessState({ isOpen: false, base64: null, onConfirmCallback: null, isProcessing: false })} 
                   />
               )}
 
+              {/* MODALE ELIMINA GARA */}
               {raceToDelete && (
                   <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[50] flex items-center justify-center p-4" onClick={() => setRaceToDelete(null)}>
                       <GlassCard className="rounded-3xl w-full max-w-sm relative text-center border-white/20 p-8" onClick={e => e.stopPropagation()}>
@@ -554,6 +593,7 @@
                   </div>
               )}
 
+              {/* MODALE AGGIUNGI GARA */}
               {isAddOpen && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[45] flex items-center justify-center p-4 pt-10">
                   <GlassCard className="rounded-3xl w-full max-w-sm relative p-8 max-h-[85vh] overflow-y-auto no-scrollbar">
@@ -570,7 +610,13 @@
                       <label className={`flex items-center justify-center w-full p-3 bg-white/10 backdrop-blur-md border rounded-xl cursor-pointer hover:bg-white/20 transition-all font-medium ${medalProcessed ? 'border-amber-400 text-amber-300' : 'border-white/20 text-white/80'}`}>
                           <Icons.Camera />
                           <span className="ml-2 truncate max-w-[200px]">{medalProcessed ? "Medaglia Pronta!" : "Scatta foto alla Medaglia"}</span>
-                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoSelection(e.target.files[0], (b64) => setMedalProcessed(b64))} />
+                          <input type="file" accept="image/*" capture="environment" className="hidden" 
+                            onChange={(e) => {
+                                const f = e.target.files[0];
+                                if(f) handlePhotoSelection(f, (b64) => setMedalProcessed(b64));
+                                e.target.value = null; // Reset per permettere un secondo scatto se serve
+                            }} 
+                          />
                       </label>
 
                       {medalProcessed && (
@@ -593,7 +639,8 @@
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // ERRROR BOUNDARY ATTIVO SU TUTTA L'APP!
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
     </script>
 </body>
 </html>
