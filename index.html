@@ -50,7 +50,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- LIBRERIE FIREBASE (Aggiunto AUTH) -->
+    <!-- LIBRERIE FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
@@ -82,6 +82,7 @@
           X: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
           Save: () => <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
           Settings: () => <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+          Users: () => <svg viewBox="0 0 24 24" className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
           Camera: () => <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
           Trash: () => <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>,
           Refresh: () => <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>,
@@ -102,13 +103,15 @@
         // 1. INCOLLA QUI LA TUA CONFIGURAZIONE FIREBASE
         // ==========================================
         const firebaseConfig = {
-          apiKey: "AIzaSyBCvUfyCeAhnPbmwRiPJyfDQORkjRIhFqo",
-          authDomain: "marathonapp-c58f6.firebaseapp.com",
-          projectId: "marathonapp-c58f6",
-          storageBucket: "marathonapp-c58f6.firebasestorage.app",
-          messagingSenderId: "1069829485856",
-          appId: "1:1069829485856:web:32de2e2f3ff12d27d19345"
+            apiKey: "AIzaSyBCvUfyCeAhnPbmwRiPJyfDQORkjRIhFqo",
+            authDomain: "marathonapp-c58f6.firebaseapp.com",
+            projectId: "marathonapp-c58f6",
+            storageBucket: "marathonapp-c58f6.firebasestorage.app",
+            messagingSenderId: "1069829485856",
+            appId: "1:1069829485856:web:32de2e2f3ff12d27d19345",
+            measurementId: "G-791179V957"
         };
+
         
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
@@ -126,32 +129,45 @@
             return Object.values(pbs).sort((a, b) => distances[a.type] - distances[b.type]);
         };
 
+        // --- ALGORITMO ISOLAMENTO MEDAGLIA ANTI-CRASH PER IPHONE ---
         const isolateMedal = (file) => {
             return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = () => {
+                const img = new Image();
+                // Usa objectURL invece del pesantissimo DataURL per non saturare la RAM di iOS
+                const objectUrl = URL.createObjectURL(file);
+                
+                img.onload = () => {
+                    try {
                         const canvas = document.createElement('canvas');
                         const SIZE = 400; 
                         canvas.width = SIZE; canvas.height = SIZE;
                         const ctx = canvas.getContext('2d');
+                        
                         ctx.clearRect(0, 0, SIZE, SIZE);
                         const minDim = Math.min(img.width, img.height);
                         const sx = (img.width - minDim) / 2;
                         const sy = (img.height - minDim) / 2;
+                        
                         ctx.beginPath();
                         ctx.arc(SIZE/2, SIZE/2, SIZE/2, 0, Math.PI * 2);
                         ctx.closePath();
                         ctx.clip();
                         ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, SIZE, SIZE);
-                        resolve(canvas.toDataURL('image/png'));
-                    };
-                    img.onerror = () => reject("Errore caricamento immagine");
+                        
+                        const base64 = canvas.toDataURL('image/png');
+                        
+                        // Svuota istantaneamente la memoria! Fondamentale per l'iPhone
+                        URL.revokeObjectURL(objectUrl);
+                        resolve(base64);
+                    } catch (err) {
+                        reject(err);
+                    }
                 };
-                reader.onerror = () => reject("Errore lettura file");
+                img.onerror = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    reject("Errore lettura immagine");
+                };
+                img.src = objectUrl;
             });
         };
 
@@ -272,7 +288,7 @@
               </div>
 
               {selectedMedal && (
-                  <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-4" onClick={() => setSelectedMedal(null)}>
+                  <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[50] flex items-center justify-center p-4" onClick={() => setSelectedMedal(null)}>
                       <GlassCard className="rounded-3xl w-full max-w-sm flex flex-col items-center relative text-center border-white/20 p-8" onClick={e => e.stopPropagation()}>
                           <button onClick={() => setSelectedMedal(null)} className="absolute top-4 right-4 text-white/50 hover:text-white"><Icons.X /></button>
                           
@@ -336,7 +352,6 @@
                     } else {
                         if (!name) return alert("Inserisci il tuo nome!");
                         const cred = await auth.createUserWithEmailAndPassword(email, password);
-                        // Salva il nome nel database legato all'utente
                         await db.collection("settings").doc(cred.user.uid).set({ name });
                     }
                 } catch (e) {
@@ -366,6 +381,30 @@
             )
         };
 
+        const PreprocessModal = ({ imageBase64, onConfirm, onCancel }) => (
+            <div className="fixed inset-0 bg-black/90 backdrop-blur-2xl z-[60] flex items-center justify-center p-4">
+                <div className="w-full max-w-sm flex flex-col items-center text-center">
+                    <h2 className="text-2xl font-black text-white mb-2">Isolamento Medaglia</h2>
+                    <p className="text-sm text-white/60 mb-8">Abbiamo ritagliato il soggetto al centro e rimosso lo sfondo.</p>
+                    
+                    <div className="w-64 h-64 rounded-full border-2 border-white/20 medal-preview-bg shadow-[0_0_50px_rgba(255,255,255,0.1)] p-2 mb-10">
+                        <img src={imageBase64} className="w-full h-full object-cover rounded-full" />
+                    </div>
+
+                    <p className="text-lg font-bold text-white mb-6">Confermi questo risultato?</p>
+                    
+                    <div className="flex gap-4 w-full">
+                        <button onClick={onCancel} className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-full transition-colors">
+                            Riprova
+                        </button>
+                        <button onClick={() => onConfirm(imageBase64)} className="flex-1 py-3 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-full shadow-lg shadow-sky-500/30 transition-colors">
+                            Conferma
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+
         function App() {
           const [user, setUser] = useState(null);
           const [username, setUsername] = useState('');
@@ -378,17 +417,15 @@
           const [medalProcessed, setMedalProcessed] = useState(null);
           
           const [raceToDelete, setRaceToDelete] = useState(null);
-          const [selectedMedal, setSelectedMedal] = useState(null); // STATO DELLA MEDAGLIA SPOSTATO QUI!
+          const [selectedMedal, setSelectedMedal] = useState(null); 
           
           const [processState, setProcessState] = useState({ isOpen: false, base64: null, onConfirmCallback: null });
 
-          // ASCOLTA LO STATO DI LOGIN
           useEffect(() => {
               if (firebaseConfig.apiKey === "INCOLLA_QUI") return;
               const unsubscribe = auth.onAuthStateChanged(u => {
                   setUser(u);
                   if (u) {
-                      // Fetch nome utente
                       db.collection("settings").doc(u.uid).get().then(doc => {
                           if(doc.exists) setUsername(doc.data().name);
                       });
@@ -397,7 +434,6 @@
               return () => unsubscribe();
           }, []);
 
-          // CARICA GARE QUANDO LOGGATO
           useEffect(() => {
               if (!user) return;
               setLoading(true);
@@ -428,7 +464,7 @@
           const handleSaveNewRace = () => {
               if (!newRace.event || !newRace.time) return alert("Inserisci Evento e Tempo!");
               const raceToAdd = {
-                  userId: user.uid, // ORA È LEGATA AL TUO ACCOUNT SICURO
+                  userId: user.uid, 
                   type: newRace.type,
                   event: newRace.event,
                   date: newRace.date,
@@ -465,7 +501,6 @@
               );
           }
 
-          // Variabile magica per nascondere la navbar
           const isAnyModalOpen = isAddOpen || raceToDelete || selectedMedal || processState.isOpen;
 
           return (
@@ -481,7 +516,6 @@
                 {!loading && activeTab === 'impostazioni' && <Impostazioni username={username} saveUsername={saveUsername} />}
               </div>
 
-              {/* Navbar Inferiore (SCOMPARE QUANDO C'È UN MODALE) */}
               {!isAnyModalOpen && (
                   <div className="fixed bottom-6 pb-safe left-0 right-0 flex justify-center z-40 px-4 pointer-events-none">
                     <div className="bg-black/60 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center justify-center gap-2 sm:gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] pointer-events-auto mx-auto w-max px-3 sm:px-4">
@@ -496,7 +530,6 @@
                   </div>
               )}
 
-              {/* MODALE CONFERMA PREPROCESSING FOTO */}
               {processState.isOpen && (
                   <PreprocessModal 
                       imageBase64={processState.base64} 
@@ -508,7 +541,6 @@
                   />
               )}
 
-              {/* MODALE ELIMINA GARA */}
               {raceToDelete && (
                   <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[50] flex items-center justify-center p-4" onClick={() => setRaceToDelete(null)}>
                       <GlassCard className="rounded-3xl w-full max-w-sm relative text-center border-white/20 p-8" onClick={e => e.stopPropagation()}>
@@ -522,7 +554,6 @@
                   </div>
               )}
 
-              {/* MODALE AGGIUNGI GARA */}
               {isAddOpen && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[45] flex items-center justify-center p-4 pt-10">
                   <GlassCard className="rounded-3xl w-full max-w-sm relative p-8 max-h-[85vh] overflow-y-auto no-scrollbar">
